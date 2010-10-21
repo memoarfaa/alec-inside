@@ -201,14 +201,12 @@ namespace Microsoft.Practices.Unity.Tests
         public void DeepChain()
         {
             var container = new UnityContainer();
-            container.RegisterType(typeof(ICommandEmpty), typeof(Command1<>),"1", new ContainerControlledLifetimeManager(), new InjectionMember[]{});
-            container.RegisterType(typeof(ICommandEmpty), typeof(Command2<>), "2", new ContainerControlledLifetimeManager(), new InjectionMember[] { });
-            container.RegisterType(typeof(ICommandEmpty), typeof(Command3<>), "3", new ContainerControlledLifetimeManager(), new InjectionMember[] { }); 
+            container.RegisterType(typeof(IHandler), typeof(Handler1<>), "1");
+            container.RegisterType(typeof(IHandler), typeof(Handler2<>), "2");
+            container.RegisterType<IHandler, HandlerStub>( "stub" );
 
-            var obj = container.Resolve<Command2<Command1<Command3<CommandStub>>>>();
-            Assert.AreSame(obj._arg.GetType(), typeof(Command1<Command3<CommandStub>>));
-            Assert.AreSame(obj._arg._arg.GetType(), typeof(Command3<CommandStub>));
-            Assert.AreSame(obj._arg._arg._arg.GetType(), typeof(CommandStub));
+            var chainRoot = container.Resolve<Handler2<Handler1<HandlerStub>>>();
+            chainRoot.HandleRequest();
         }
 
     }
@@ -220,44 +218,52 @@ namespace Microsoft.Practices.Unity.Tests
         void ChainedExecute(ICommand<T> inner);
     }
 
-    public interface ICommandEmpty
+    public interface IHandler
     {
-       
+        void HandleRequest();
     }
 
-    public class Command1<T> : ICommandEmpty
+    public class Handler1<T> : IHandler where T : IHandler
     {
-        public readonly T _arg;
+        public readonly T nextHandler;
 
-        public Command1( T arg )
+        public Handler1( T next )
         {
-            _arg = arg;
+            nextHandler = next;
+        }
+
+        public void HandleRequest()
+        {
+            //do work
+            //...
+            nextHandler.HandleRequest();
         }
     }
 
-    public class Command2<T> : ICommandEmpty
+    public class Handler2<T> : IHandler where T: IHandler
     {
-        public readonly T _arg;
+        public readonly T nextHandler;
 
-        public Command2(T arg)
+        public Handler2(T next)
         {
-            _arg = arg;
+            nextHandler = next;
+        }
+
+        public void HandleRequest()
+        {
+            //do work
+            //...
+            nextHandler.HandleRequest();
         }
     }
 
-    public class Command3<T> : ICommandEmpty
+    public class HandlerStub : IHandler
     {
-        public readonly T _arg;
-
-        public Command3(T arg)
+        public void HandleRequest()
         {
-            _arg = arg;
+            //do work
+            //...
         }
-    }
-
-    public class CommandStub : ICommandEmpty
-    {
-
     }
 
     // An implementation of ICommand that executes them.
